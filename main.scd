@@ -620,7 +620,7 @@ f = { arg x, y ,z; //y value, z cc no
 ~currentpreset = 0;
 
 ~setPreset = {arg z;
-	r = File("/sdcard/Patches/Synthesizers/DX7/DX7.afx".resolveRelative,"r");
+	r = File("/tmp/patch/DX7.afx".resolveRelative,"r");
 		//r = File("/Users/EmanTnuocca/Desktop/3/DX7.afx","r");
 		z.do({
 			r.getLine;
@@ -645,13 +645,13 @@ f = { arg x, y ,z; //y value, z cc no
 ~mainCaller = {arg x, y, z;
 	if(y > 0,{
 
-		if(z != ~currentpreset, {~setPreset.value(z);},{
-
+		if(z != ~currentpreset, {
+			~setPreset.value(z);
+		},{
 			noteParser.value(y, x);
-	});
+		});
 
-	},
-	{
+	},{
 		noteParser.value(y, x);
 	});
 
