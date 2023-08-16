@@ -680,8 +680,28 @@ f = { arg x, y ,z; //y value, z cc no
 
 // create notes callback
 
-MIDIClient.init(1,1, verbose:false);
-MIDIIn.connect(0,MIDIIn.findPort("HYDRASYNTH EXPLORER", "HYDRASYNTH EXPLORER MIDI 1"));
+// MIDIIn.connect(0,MIDIIn.findPort("HYDRASYNTH EXPLORER", "HYDRASYNTH EXPLORER MIDI 1"));
+
+
+~setupMIDI = {
+	var patch_loaded = File("/sdcard/patch_loaded.sh".resolveRelative, "r"), line, devicesetting, sources;
+
+	MIDIClient.init(1,1,false);
+
+	6.do({
+		line = patch_loaded.getLine;
+	});
+
+	devicesetting = line.split($,).at(1).split($:).at(0);
+
+	sources = MIDIClient.sources;
+
+	sources.do({arg item;
+		if(item.device == devicesetting, {
+			MIDIIn.connect(0, MIDIIn.findPort(item.device, item.name));
+		});
+	});
+}.value;
 
 ~maxPoly= 4;
 ~notesActive = Array.new(~maxPoly);
