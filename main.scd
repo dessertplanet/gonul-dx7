@@ -751,16 +751,42 @@ f = { arg x, y ,z; //y value, z cc no
 MIDIIn.addFuncTo(\noteOn, ~noteOn);
 MIDIIn.addFuncTo(\noteOff, ~noteOff);
 
+~silenceAll = {
+	noteArrayDX7.do({arg item, i;
+		noteArrayDX7[i].set(\gate,0);
+		noteArrayDX7[i] = nil;
+	});
+	~notesActive = Array.new(~maxPoly);
+	MIDIClient.restart;
+};
+
+~auxBool = false;
+
+~waitRoutine = Routine {
+	2.wait;
+};
+
+~auxfunc = {
+	arg func, msg, key, vel;
+	~auxBool = key;
+	if(key, { ~waitRoutine.play });
+	if(~auxBool, { ~silenceAll.value });
+};
+
+
+
+~aux.addDependant(~auxfunc);
+
 //initialize
 
 ~maxPoly = 4;
 
 ~oled.screen(1, format("velocity %", ~velocity));
 ~oled.screen(2, format("preset %", ~currentpreset));
-~oled.screen(5, format("count %", ~notesActive.size));
 ~oled.screen(3, "poly: 4 max");
 
 ~led.value(2);
+
 //other callbacks
 //~encoder_turn
 //~encoder_buttonß
