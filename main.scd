@@ -635,13 +635,6 @@ f = { arg x, y ,z; //y value, z cc no
 
 ~setPreset.value(0);
 
-
-// Elements of TheTechnobear's SimplePoly here
-
-//initialise
-// ~voices = Dictionary.new;
-// ~oled.screen(5,"Test Patch Loaded");
-
 ~mainCaller = {arg x, y, z;
 	if(y > 0,{
 
@@ -664,7 +657,7 @@ f = { arg x, y ,z; //y value, z cc no
 
 ~knobfunc = {
 	arg func, msg, knob, value;
-	var a = 0;
+	var a = 0, text = nil;
 	if(knob==0, {
 		a = value * 127;
 		~velocity = a.asInteger;
@@ -676,9 +669,16 @@ f = { arg x, y ,z; //y value, z cc no
 		~oled.screen(2, format("preset %", ~currentpreset));
 	});
 	if(knob==2, {
-		a = value * 4;
-		~maxPoly = a.asInteger;
-		~oled.screen(3, format("poly %", ~maxPoly));
+		a = value * 3 + 1;
+		a = a.asInteger;
+		if(a == 2, { a = 3; });
+		~maxPoly = a;
+		switch(~maxPoly)
+		{1}{text = "1 mono"}
+		{3}{text = "3 steal"}
+		{4}{text = "4 max"};
+
+		~oled.screen(3, format("poly: %", text));
 	});
 };
 
@@ -711,7 +711,6 @@ f = { arg x, y ,z; //y value, z cc no
 // create notes callback
 ~notesfunc = {
 	arg func, msg, note, vel;
-	var a;
 	if(vel>0, {
 		if(~notesActive.size < ~maxPoly, {
 			~mainCaller.value(note, ~velocity, ~currentpreset);
@@ -719,26 +718,23 @@ f = { arg x, y ,z; //y value, z cc no
 			~led.value(1);
 			~notesActive = ~notesActive.add(note);
 		},{
-			~mainCaller.value(~notesActive.removeAt(0), 0);
-			~mainCaller.value(note, ~velocity, ~currentpreset);
-			~oled.screen(1, format("velocity %", ~velocity));
-			~led.value(1);
-			~notesActive = ~notesActive.add(note);
+			if(~maxPoly < 4, {
+				~mainCaller.value(~notesActive.removeAt(0), 0);
+				~notesfunc.value(func, msg, note, vel);
+			});
 		});
 	},{
-		~notesActive.do({ arg item, i;
-			if(~notesActive[item] == note, {a = ~notesActive.removeAt(i) });
+		~notesActive.do({arg item, i;
+			if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
+		});
 			~mainCaller.value(note, 0);
 			~led.value(0);
 		});
-	});
 	~oled.screen(5, format("count %", ~notesActive.size));
 };
 
 // register key callback
 ~notes.addDependant(~notesfunc);
-
-~led.value(2);
 
 ~noteOn = {
 	arg src, chan, num, vel;
@@ -755,8 +751,16 @@ f = { arg x, y ,z; //y value, z cc no
 MIDIIn.addFuncTo(\noteOn, ~noteOn);
 MIDIIn.addFuncTo(\noteOff, ~noteOff);
 
+//initialize
 
+~maxPoly = 4;
 
+~oled.screen(1, format("velocity %", ~velocity));
+~oled.screen(2, format("preset %", ~currentpreset));
+~oled.screen(5, format("count %", ~notesActive.size));
+~oled.screen(3, "poly: 4 max");
+
+~led.value(2);
 //other callbacks
 //~encoder_turn
 //~encoder_buttonß
