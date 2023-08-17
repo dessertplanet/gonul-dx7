@@ -660,6 +660,7 @@ f = { arg x, y ,z; //y value, z cc no
 //create knob callback
 
 ~velocity = 127;
+~maxPoly= 4;
 
 ~knobfunc = {
 	arg func, msg, knob, value;
@@ -673,6 +674,11 @@ f = { arg x, y ,z; //y value, z cc no
 		a = value * 16384;
 		~setPreset.value(a.asInteger);
 		~oled.screen(2, format("preset %", ~currentpreset));
+	});
+	if(knob==2, {
+		a = value * 4;
+		~maxPoly = a.asInteger;
+		~oled.screen(3, format("poly %", ~maxPoly));
 	});
 };
 
@@ -700,25 +706,31 @@ f = { arg x, y ,z; //y value, z cc no
 	});
 }.value;
 
-~maxPoly= 4;
 ~notesActive = Array.new(~maxPoly);
 
 // create notes callback
 ~notesfunc = {
 	arg func, msg, note, vel;
+	var a;
 	if(vel>0, {
 		if(~notesActive.size < ~maxPoly, {
 			~mainCaller.value(note, ~velocity, ~currentpreset);
 			~oled.screen(1, format("velocity %", ~velocity));
 			~led.value(1);
-			~notesActive.add(note);
+			~notesActive = ~notesActive.add(note);
+		},{
+			~mainCaller.value(~notesActive.removeAt(0), 0);
+			~mainCaller.value(note, ~velocity, ~currentpreset);
+			~oled.screen(1, format("velocity %", ~velocity));
+			~led.value(1);
+			~notesActive = ~notesActive.add(note);
 		});
 	},{
-		if(noteArrayDX7[note] != nil, {
-			~notesActive.pop;
+		~notesActive.do({ arg item, i;
+			if(~notesActive[item] == note, {a = ~notesActive.removeAt(i) });
+			~mainCaller.value(note, 0);
+			~led.value(0);
 		});
-		~mainCaller.value(note, 0);
-		~led.value(0);
 	});
 	~oled.screen(5, format("count %", ~notesActive.size));
 };
@@ -760,5 +772,4 @@ SynthDef(\testSynth, {
 		Out.ar(~outL,sig!2);
 	}
 ).add;*/
-
 
