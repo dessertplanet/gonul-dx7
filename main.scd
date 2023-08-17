@@ -675,24 +675,21 @@ f = { arg x, y ,z; //y value, z cc no
 		~oled.screen(2, format("preset %", ~currentpreset));
 	});
 };
+
 //register knob callback
 ~knobs.addDependant(~knobfunc);
 
-// create notes callback
-
-// MIDIIn.connect(0,MIDIIn.findPort("HYDRASYNTH EXPLORER", "HYDRASYNTH EXPLORER MIDI 1"));
-
-
+//Setup MIDI, pulling device from Organelle settings in /sdcard/patch_loaded.sh
 ~setupMIDI = {
-	var patch_loaded = File("/sdcard/patch_loaded.sh".resolveRelative, "r"), line, devicesetting, sources;
+	var patch_loaded = File("/sdcard/patch_loaded.sh".resolveRelative, "r"), lines, devicesetting, sources;
+	lines = patch_loaded.readAllString.split($\n);
 
-	MIDIClient.init(1,1,false);
-
-	6.do({
-		line = patch_loaded.getLine;
+	lines.do({arg item;
+		if(item.beginsWith("# midiDevice"), {
+			devicesetting = item.split($,).at(1).split($:).at(0);
+		});
 	});
-
-	devicesetting = line.split($,).at(1).split($:).at(0);
+	MIDIClient.init(1,1,false);
 
 	sources = MIDIClient.sources;
 
@@ -706,6 +703,7 @@ f = { arg x, y ,z; //y value, z cc no
 ~maxPoly= 4;
 ~notesActive = Array.new(~maxPoly);
 
+// create notes callback
 ~notesfunc = {
 	arg func, msg, note, vel;
 	if(vel>0, {
