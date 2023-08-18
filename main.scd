@@ -618,6 +618,8 @@ f = { arg x, y ,z; //y value, z cc no
 };
 
 ~currentpreset = 0;
+~auxBool = false;
+~longPressBool = false;
 
 ~setPreset = {arg z;
 	r = File("/tmp/patch/DX7.afx".resolveRelative,"r");
@@ -711,26 +713,33 @@ f = { arg x, y ,z; //y value, z cc no
 // create notes callback
 ~notesfunc = {
 	arg func, msg, note, vel;
-	if(vel>0, {
-		if(~notesActive.size < ~maxPoly, {
-			~mainCaller.value(note, ~velocity, ~currentpreset);
-			~oled.screen(1, format("velocity %", ~velocity));
-			~led.value(1);
-			~notesActive = ~notesActive.add(note);
-		},{
-			if(~maxPoly < 4, {
-				~mainCaller.value(~notesActive.removeAt(0), 0);
-				~notesfunc.value(func, msg, note, vel);
+	if(~auxBool == false, {
+		if(vel>0, {
+			if(~notesActive.size < ~maxPoly, {
+				~mainCaller.value(note, ~velocity, ~currentpreset);
+				~oled.screen(1, format("velocity %", ~velocity));
+				~led.value(1);
+				~notesActive = ~notesActive.add(note);
+			},{
+				if(~maxPoly < 4, {
+					~mainCaller.value(~notesActive.removeAt(0), 0);
+					~notesfunc.value(func, msg, note, vel);
+				});
 			});
-		});
-	},{
-		~notesActive.do({arg item, i;
-			if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
-		});
+		},{
+			~notesActive.do({arg item, i;
+				if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
+			});
 			~mainCaller.value(note, 0);
 			~led.value(0);
 		});
-	~oled.screen(5, format("count %", ~notesActive.size));
+		~oled.screen(5, format("count %", ~notesActive.size));
+	},{
+		/*~longPressBool = false;
+
+		~longPress.reset;*/
+		//aux + key behavior here
+	});
 };
 
 // register key callback
@@ -760,17 +769,36 @@ MIDIIn.addFuncTo(\noteOff, ~noteOff);
 	MIDIClient.restart;
 };
 
-~auxBool = false;
 
-~waitRoutine = Routine {
-	2.wait;
+
+~longPress = Routine {
+	arg type;
+	~longPressBool = false;
+	switch(type)
+	{"aux"}{5.wait}
+	{"aux+key"}{2.wait};
+	~longPressBool = true;
+	"longPress = true".postln;
 };
 
 ~auxfunc = {
 	arg func, msg, key, vel;
-	~auxBool = key;
-	if(key, { ~waitRoutine.play });
-	if(~auxBool, { ~silenceAll.value });
+	if(key, {
+		~auxBool = true;
+		~led.value(5);
+		~longPress.reset.value("aux");
+	},{
+		if(~longPressBool, {
+			if(~notesActive.size == 0, {
+				//long press AUX ONLY behavior here
+				"waited for 5 no keys".postln;
+			});
+		},{
+			"longPress = false".postln;
+		});
+		~auxBool= false;
+		~led.value(0);
+	});
 };
 
 
