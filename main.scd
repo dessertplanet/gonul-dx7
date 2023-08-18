@@ -707,29 +707,44 @@ f = { arg x, y ,z; //y value, z cc no
 }.value;
 
 ~notesActive = Array.new(~maxPoly);
+~longPress = false;
+~auxPressed = false;
+
+~waitForLongPress = Routine ({
+	3.wait;
+	~longPress = true;
+});
 
 // create notes callback
 ~notesfunc = {
 	arg func, msg, note, vel;
 	if(vel>0, {
-		if(~notesActive.size < ~maxPoly, {
-			~mainCaller.value(note, ~velocity, ~currentpreset);
-			~oled.screen(1, format("velocity %", ~velocity));
-			~led.value(1);
-			~notesActive = ~notesActive.add(note);
-		},{
-			if(~maxPoly < 4, {
-				~mainCaller.value(~notesActive.removeAt(0), 0);
-				~notesfunc.value(func, msg, note, vel);
+		if(~auxPressed == false, {
+			if(~notesActive.size < ~maxPoly, {
+				~mainCaller.value(note, ~velocity, ~currentpreset);
+				~oled.screen(1, format("velocity %", ~velocity));
+				~led.value(1);
+				~notesActive = ~notesActive.add(note);
+			},{
+				if(~maxPoly < 4, {
+					~mainCaller.value(~notesActive.removeAt(0), 0);
+					~notesfunc.value(func, msg, note, vel);
+				});
 			});
+		},{
+			//auxPressed + noteON
 		});
 	},{
-		~notesActive.do({arg item, i;
-			if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
-		});
+		if(~auxPressed == false, {
+			~notesActive.do({arg item, i;
+				if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
+			});
 			~mainCaller.value(note, 0);
 			~led.value(0);
+		},{
+			//auxPressed + noteOFF
 		});
+	});
 	~oled.screen(5, format("count %", ~notesActive.size));
 };
 
@@ -750,6 +765,18 @@ f = { arg x, y ,z; //y value, z cc no
 
 MIDIIn.addFuncTo(\noteOn, ~noteOn);
 MIDIIn.addFuncTo(\noteOff, ~noteOff);
+
+~auxfunc = {
+	arg func, msg, key, vel;
+	~auxPressed = key;
+	if(key, {
+		~led.value(4);
+	},{
+		~led.value(0);
+	});
+};
+
+~aux.addDependant(~auxfunc);
 
 //initialize
 
