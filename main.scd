@@ -619,7 +619,10 @@ f = { arg x, y ,z; //y value, z cc no
 
 ~currentpreset = 0;
 
-~setPreset = {arg z;
+~setPreset = {
+	arg z;
+	var presetFile, bank, num, name;
+
 	r = File("/tmp/patch/DX7.afx".resolveRelative,"r");
 		//r = File("/Users/EmanTnuocca/Desktop/3/DX7.afx","r");
 		z.do({
@@ -630,7 +633,13 @@ f = { arg x, y ,z; //y value, z cc no
 			k = (g.at((item*2)) ++ g.at((item*2) + 1)).asInt;
 			f.value(cirklonCCparse[item][0],cirklonCCparse[item][1],k);
 	    });
-	~currentpreset = z;
+
+	/*presetFile = CSVFileReader.read("/tmp/patch/DX7-presets2.csv", true);
+	bank = presetFile[z][1].asString;
+	num = presetFile[z][2].asInt;
+	name = presetFile[z][3].asString;*/
+
+	~oled.screen(2, format("Preset: %", ~currentpreset));
 };
 
 ~setPreset.value(0);
@@ -665,8 +674,8 @@ f = { arg x, y ,z; //y value, z cc no
 	});
 	if(knob==1, {
 		a = value * 16384;
-		~setPreset.value(a.asInteger);
-		~oled.screen(2, format("preset %", ~currentpreset));
+		~currentpreset = a.asInt;
+		~setPreset.value(~currentpreset);
 	});
 	if(knob==2, {
 		a = value * 3 + 1;
@@ -707,12 +716,13 @@ f = { arg x, y ,z; //y value, z cc no
 }.value;
 
 ~notesActive = Array.new(~maxPoly);
-~longPress = false;
 ~auxPressed = false;
 
-~waitForLongPress = Routine ({
-	3.wait;
-	~longPress = true;
+~longPress = Routine ({
+	2.wait;
+
+	//long press actions here
+	"Long Press!".postln;
 });
 
 // create notes callback
@@ -720,6 +730,7 @@ f = { arg x, y ,z; //y value, z cc no
 	arg func, msg, note, vel;
 	if(vel>0, {
 		if(~auxPressed == false, {
+			~longPress.stop;
 			if(~notesActive.size < ~maxPoly, {
 				~mainCaller.value(note, ~velocity, ~currentpreset);
 				~oled.screen(1, format("velocity %", ~velocity));
@@ -733,8 +744,10 @@ f = { arg x, y ,z; //y value, z cc no
 			});
 		},{
 			//auxPressed + noteON
+			~longPress.reset.play;
 		});
 	},{
+		~longPress.stop;
 		if(~auxPressed == false, {
 			~notesActive.do({arg item, i;
 				if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
@@ -742,10 +755,10 @@ f = { arg x, y ,z; //y value, z cc no
 			~mainCaller.value(note, 0);
 			~led.value(0);
 		},{
-			//auxPressed + noteOFF
+			//auxPressed + noteOFF > PRESET SELECT GOES HERE
 		});
 	});
-	~oled.screen(5, format("count %", ~notesActive.size));
+	//~oled.screen(5, format("count %", ~notesActive.size));
 };
 
 // register key callback
@@ -781,10 +794,7 @@ MIDIIn.addFuncTo(\noteOff, ~noteOff);
 //initialize
 
 ~maxPoly = 4;
-
 ~oled.screen(1, format("velocity %", ~velocity));
-~oled.screen(2, format("preset %", ~currentpreset));
-~oled.screen(5, format("count %", ~notesActive.size));
 ~oled.screen(3, "poly: 4 max");
 
 ~led.value(2);
