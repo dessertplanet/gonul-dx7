@@ -618,6 +618,18 @@ f = { arg x, y ,z; //y value, z cc no
 };
 
 ~currentpreset = 0;
+~presetFile = CSVFileReader.read("/tmp/patch/DX7-presets2.csv", true);
+
+~refreshPreset = Routine ({
+	var bank, num, name, refresh = {
+		1.wait;
+		bank = ~presetFile[~currentpreset][1].asString;
+		num = ~presetFile[~currentpreset][2].asInt;
+		name = ~presetFile[~currentpreset][3].asString;
+		~oled.screen(5, format("% % %", bank, num, name));
+	}.loop;
+
+}).play;
 
 ~setPreset = {
 	arg z;
@@ -634,11 +646,7 @@ f = { arg x, y ,z; //y value, z cc no
 			f.value(cirklonCCparse[item][0],cirklonCCparse[item][1],k);
 	    });
 
-	/*presetFile = CSVFileReader.read("/tmp/patch/DX7-presets2.csv", true);
-	bank = presetFile[z][1].asString;
-	num = presetFile[z][2].asInt;
-	name = presetFile[z][3].asString;*/
-
+	~currentpreset = z;
 	~oled.screen(2, format("Preset: %", ~currentpreset));
 };
 
@@ -674,8 +682,7 @@ f = { arg x, y ,z; //y value, z cc no
 	});
 	if(knob==1, {
 		a = value * 16384;
-		~currentpreset = a.asInt;
-		~setPreset.value(~currentpreset);
+		~setPreset.value(a.asInt);
 	});
 	if(knob==2, {
 		a = value * 3 + 1;
@@ -758,7 +765,6 @@ f = { arg x, y ,z; //y value, z cc no
 			//auxPressed + noteOFF > PRESET SELECT GOES HERE
 		});
 	});
-	//~oled.screen(5, format("count %", ~notesActive.size));
 };
 
 // register key callback
