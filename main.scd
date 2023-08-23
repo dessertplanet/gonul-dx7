@@ -230,7 +230,6 @@ waveform_selector = [lfoTri, lfoSawDown, lfoSawUp, lfoSqr, lfoSin, lfoSin];
 phase_selector =    [0.5pi , 0.98pi    , 0.98    , 0.98pi,  0    , 0     ];
 pitchTameConst =    [0,1,1,0,0,0];
 pitchTameMult =     [1,0,0,1,1,1];
-
 SynthDef(\InfEfx, {
 	arg outBus=0, pitch, gate,
 	lfoGet1 = 0, lfoGet2=1,
@@ -330,7 +329,10 @@ SynthDef(\DX7, {
 	out = out / outMult;
 	DetectSilence.ar(out, 0.01, 0.2,doneAction:2);
 	//out = out * ((totVol -15).dbamp);
-	Out.ar(~outL, out.dup); //orj
+	//Changed to refect Organelle mother.scd
+	out = HPF.ar(out, 20, 1, 0);
+	out = LPF.ar(out, 20000, 1, 0);
+	Out.ar(~outL.index, out.dup); //orj
 
 }).add;
 envCal = { arg // Area of hardcore envelope calculation function.
@@ -412,7 +414,6 @@ envCal = { arg // Area of hardcore envelope calculation function.
 	);
 	//[dbStr, dbEnd, endR0].postln;
 	[dbStr, dbEnd, endR0];
-
 
 };
 defjamHead = { arg a1; var abc = [], cba = [],  algo, fdbIndNo = Array.fill(42, 1),lfoDepth, lfoGet1, lfoGet2;
@@ -573,6 +574,9 @@ defme = { arg a1,b1;
 
 };
 
+//Added transpose value
+~transpose = 0;
+
 noteParser = { arg vel, note;
 	1.do(
 		{arg yxx;
@@ -597,7 +601,7 @@ noteParser = { arg vel, note;
 						{
 							headno.set(defjamHead.value(0))});
 					});
-						noteArrayDX7[note] = Synth(\DX7 ,defme.value(note, vel),novaDX7);
+					noteArrayDX7[note] = Synth(\DX7 ,defme.value(note + ~transpose, vel),novaDX7);
 					//noteArrayDX7[note] = Synth(\DX7 ,defme.value(note, vel), novaDX7); //orjburayi addtotail diye degistirdin
 
 				},
@@ -605,11 +609,9 @@ noteParser = { arg vel, note;
 					noteArrayDX7[note].set(\gate,0);
 					noteArrayDX7[note] = nil;
 
-
 		});}
 	);
 };
-
 f = { arg x, y ,z; //y value, z cc no
 	if(x == 3,
 		{vr[y] = z},
@@ -617,74 +619,94 @@ f = { arg x, y ,z; //y value, z cc no
 	);
 };
 
-~currentpreset = 0;
+
+//------------------------------------------DUNE CODE BELOW
+~currentpreset = 1;
+~bankNumber = 1;
+~patchNum = 1;
+~uberName= "SCDX7";
 ~presetFile = CSVFileReader.read("/tmp/patch/DX7-presets2.csv", true);
 
-~refreshPreset = Routine ({
-	var bank, num, name, refresh = {
-		1.wait;
-		bank = ~presetFile[~currentpreset][1].asString;
-		num = ~presetFile[~currentpreset][2].asInt;
-		name = ~presetFile[~currentpreset][3].asString;
-		~oled.screen(5, format("% % %", bank, num, name));
-	}.loop;
 
+~refreshPreset = Routine ({
+	var index, bankName, num, presetName, presetLine, refresh = {
+		presetLine = ~presetFile[~currentpreset].asArray;
+		index = presetLine[0].asInt;
+		1.wait;
+		if(index != ~currentpreset, {
+			"inside if statement".postln;
+			presetLine = ~presetFile[~currentpreset].asArray;
+			bankName = presetLine[1].asString;
+			~oled.screen(3, format("Bank:% %", ~bankNumber + 1, bankName));
+			num = presetLine[2].asInt;
+			presetName = presetLine[3].asString;
+
+			r = File("/tmp/patch/DX7.afx".resolveRelative,"r");
+			~currentpreset.do({
+				r.getLine;
+			});
+			g = r.getLine;
+			145.do({arg item;
+				k = (g.at((item*2)) ++ g.at((item*2) + 1)).asInt;
+				f.value(cirklonCCparse[item][0],cirklonCCparse[item][1],k);
+			});
+			~transpose = 0;
+			~oled.screen(4, format("Transpose: %", ~transpose));
+		});
+		~oled.screen(1, format("%: %",~uberName, presetName));
+
+	}.loop;
 }).play;
 
-~setPreset = {
-	arg z;
-	var presetFile, bank, num, name;
 
-	r = File("/tmp/patch/DX7.afx".resolveRelative,"r");
-		//r = File("/Users/EmanTnuocca/Desktop/3/DX7.afx","r");
-		z.do({
-			r.getLine;
-		});
-		g = r.getLine;
-		145.do({arg item;
-			k = (g.at((item*2)) ++ g.at((item*2) + 1)).asInt;
-			f.value(cirklonCCparse[item][0],cirklonCCparse[item][1],k);
-	    });
 
-	~currentpreset = z;
-	~oled.screen(2, format("Preset: %", ~currentpreset));
-};
+~velocity = 127;
 
-~setPreset.value(0);
 
-~mainCaller = {arg x, y, z;
-	if(y > 0,{
+//monophonic by default
+~maxPoly= 4;
 
-		if(z != ~currentpreset, {
-			~setPreset.value(z);
-		},{
-			noteParser.value(y, x);
-		});
-
-	},{
-		noteParser.value(y, x);
-	});
-
+~updateBank = {
+	arg value;
+	var a;
+	~bankNumber = (value * 511).asInt;
+		~oled.screen(3, format("Bank:% ...", ~bankNumber + 1));
+		a = ~bankNumber * 32 + ~patchNum;
+		~oled.screen(1, "Loading...");
+		~currentpreset = a;
 };
 
 //create knob callback
-
-~velocity = 127;
-~maxPoly= 4;
-
 ~knobfunc = {
 	arg func, msg, knob, value;
 	var a = 0, text = nil;
+
 	if(knob==0, {
-		a = value * 127;
-		~velocity = a.asInteger;
-		~oled.screen(1, format("velocity %", ~velocity));
+		~patchNum = (value * 31).asInt;
+		~oled.screen(2, format("Patch#: %", ~patchNum + 1));
+		a = ~bankNumber * 32 + ~patchNum;
+		~oled.screen(1, "Loading...");
+		~currentpreset = a;
+
 	});
 	if(knob==1, {
-		a = value * 16384;
-		~setPreset.value(a.asInt);
+		~updateBank.value(value);
 	});
+
 	if(knob==2, {
+		~transpose = (value * 48).asInt - 24;
+		~oled.screen(4, format("Transpose: %", ~transpose));
+	});
+
+	if(knob==3, {
+		a = (value * 127).asInt;
+		~velocity = a;
+		~oled.screen(5, format("velocity %", ~velocity));
+	});
+
+	~oled.screen(5, format("index % notes %", ~currentpreset, ~notesActive.size));
+
+	/*if(knob==3, {
 		a = value * 3 + 1;
 		a = a.asInteger;
 		if(a == 2, { a = 3; });
@@ -694,8 +716,8 @@ f = { arg x, y ,z; //y value, z cc no
 		{3}{text = "3 steal"}
 		{4}{text = "4 max"};
 
-		~oled.screen(3, format("poly: %", text));
-	});
+		~oled.screen(4, format("poly: %", text));
+	});*/
 };
 
 //register knob callback
@@ -735,31 +757,39 @@ f = { arg x, y ,z; //y value, z cc no
 // create notes callback
 ~notesfunc = {
 	arg func, msg, note, vel;
+	"notesfunc".postln;
 	if(vel>0, {
 		if(~auxPressed == false, {
 			~longPress.stop;
+
 			if(~notesActive.size < ~maxPoly, {
-				~mainCaller.value(note, ~velocity, ~currentpreset);
-				~oled.screen(1, format("velocity %", ~velocity));
+				noteParser.value(vel, note);
+				// ~oled.screen(5, format("velocity %", ~velocity));
 				~led.value(1);
 				~notesActive = ~notesActive.add(note);
+				"addednote".postln;
 			},{
 				if(~maxPoly < 4, {
-					~mainCaller.value(~notesActive.removeAt(0), 0);
+					"voicesteal".postln;
+					noteParser.value(0, ~notesActive.removeAt(0));
 					~notesfunc.value(func, msg, note, vel);
 				});
 			});
 		},{
 			//auxPressed + noteON
 			~longPress.reset.play;
+			"aux + note on".postln;
 		});
 	},{
 		~longPress.stop;
 		if(~auxPressed == false, {
 			~notesActive.do({arg item, i;
-				if(~notesActive[i] == note, { ~notesActive.removeAt(i); });
+				"in note remove loop".postln;
+				if(~notesActive[i] == note, { ~notesActive.removeAt(i);
+
+				});
 			});
-			~mainCaller.value(note, 0);
+			noteParser.value(0, note);
 			~led.value(0);
 		},{
 			//auxPressed + noteOFF > PRESET SELECT GOES HERE
@@ -774,6 +804,7 @@ f = { arg x, y ,z; //y value, z cc no
 	arg src, chan, num, vel;
 	~velocity = vel;
 	~notesfunc.value(0, 0, num, ~velocity);
+	"noteON".postln;
 };
 
 ~noteOff = {
@@ -799,13 +830,19 @@ MIDIIn.addFuncTo(\noteOff, ~noteOff);
 
 //initialize
 
+~currentpreset = 0;
 ~maxPoly = 4;
-~oled.screen(1, format("velocity %", ~velocity));
-~oled.screen(3, "poly: 4 max");
+~velocity = 127;
+
+~oled.screen(1, format("%: ARP 2600", ~uberName));
+~oled.screen(2, "Patch#: 1");
+~oled.screen(3, "Bank:1 1ST_DEMO");
+~oled.screen(4, format("Transpose: %", ~transpose));
+~oled.screen(5, format("velocity %", ~velocity));
 
 ~led.value(2);
 //other callbacks
-//~encoder_turn
+//~encoder_turnß
 //~encoder_buttonß
 //~footswitch
 /*
